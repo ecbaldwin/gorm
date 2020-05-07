@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 
 	_ "github.com/lib/pq"
 	"github.com/lib/pq/hstore"
+	"gopkg.in/netaddr.v1"
 )
 
 type Hstore map[string]*string
@@ -78,4 +80,26 @@ func (j *Jsonb) Scan(value interface{}) error {
 	}
 
 	return json.Unmarshal(bytes, j)
+}
+
+type Inet net.IP
+
+func (ip Inet) Value() (driver.Value, error) {
+	switch len(ip) {
+		case 4, 16:
+			return net.IP(ip).String(), nil
+		default:
+			return nil, errors.New(fmt.Sprint("Failed to marshal INET value: %+v", ip))
+	}
+}
+
+func (ip *Inet) Scan(value interface{}) error {
+	str, ok := value.(string)
+	if !ok {
+		return errors.New(fmt.Sprint("Failed to unmarshal INET value:", value))
+	}
+
+	*ip = Inet(netaddr.ParseIP(str))
+
+	return nil
 }
